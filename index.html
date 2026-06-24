@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Мария Таро</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #1a1a2e;
+            color: #e0cfa0;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            text-align: center;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px 20px;
+            max-width: 360px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 26px;
+            margin-bottom: 15px;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+            opacity: 0.8;
+            margin-bottom: 15px;
+        }
+        .status {
+            font-size: 14px;
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .status.success {
+            color: #a5d6a5;
+        }
+        .status.error {
+            color: #ef9a9a;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🌙 Мария Таро</h1>
+        <p>Добро пожаловать в мини-приложение.<br>Скоро здесь появятся карта дня, аффирмации и многое другое.</p>
+        <div id="tg-status" class="status">Проверяю подключение...</div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('tg-status');
+        if (window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+            
+            statusEl.textContent = '✅ Подключено к Telegram';
+            statusEl.classList.add('success');
+            
+            // Устанавливаем цвет верхней панели в стиле Марии
+            tg.setHeaderColor('#1a1a2e');
+            tg.setBackgroundColor('#1a1a2e');
+        } else {
+            statusEl.textContent = '❌ Откройте это приложение через Telegram';
+            statusEl.classList.add('error');
+        }
+    </script>
+</body>
+</html>
