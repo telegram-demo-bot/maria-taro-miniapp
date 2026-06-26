@@ -168,38 +168,45 @@
 
             let currentCard = null;
 
-            async function loadDailyCard() {
+            async function loadDailyCard(retries = 2) {
                 const container = document.getElementById('mainBlock');
-                try {
-                    const response = await fetch(`${API_URL}/api/daily-card`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: TG.initData })
-                    });
-                    if (!response.ok) {
-                        if (response.status === 404) {
-                            container.innerHTML = '<p style="color:#ef9a9a;">Сначала познакомимся! Напиши /start в чате с Марией. 🌙</p>';
-                        } else {
-                            container.innerHTML = '<p style="color:#ef9a9a;">Не удалось загрузить карту дня. Попробуй позже.</p>';
+                for (let attempt = 0; attempt <= retries; attempt++) {
+                    try {
+                        const response = await fetch(`${API_URL}/api/daily-card`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ initData: TG.initData })
+                        });
+                        if (!response.ok) {
+                            if (response.status === 404) {
+                                container.innerHTML = '<p style="color:#ef9a9a;">Сначала познакомимся! Напиши /start в чате с Марией. 🌙</p>';
+                            } else {
+                                container.innerHTML = '<p style="color:#ef9a9a;">Не удалось загрузить карту дня. Попробуй позже.</p>';
+                            }
+                            return;
                         }
-                        return;
+                        const data = await response.json();
+                        currentCard = data;
+                        document.getElementById('cardImage').src = data.image_url;
+                        document.getElementById('cardTitle').textContent = data.card_name;
+                        document.getElementById('cardPosition').textContent = data.position === 'прямое' ? 'прямое положение' : 'перевёрнутое положение';
+                        document.getElementById('cardInterpretation').textContent = data.interpretation;
+
+                        setTimeout(() => {
+                            document.getElementById('flipCard').classList.add('flipped');
+                        }, 400);
+
+                        setTimeout(() => {
+                            document.getElementById('cardInfo').classList.remove('hidden');
+                        }, 1200);
+                        return; // успех
+                    } catch (e) {
+                        if (attempt === retries) {
+                            container.innerHTML = '<p style="color:#ef9a9a;">Ошибка соединения. Попробуй позже.</p>';
+                        } else {
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                        }
                     }
-                    const data = await response.json();
-                    currentCard = data;
-                    document.getElementById('cardImage').src = data.image_url;
-                    document.getElementById('cardTitle').textContent = data.card_name;
-                    document.getElementById('cardPosition').textContent = data.position === 'прямое' ? 'прямое положение' : 'перевёрнутое положение';
-                    document.getElementById('cardInterpretation').textContent = data.interpretation;
-
-                    setTimeout(() => {
-                        document.getElementById('flipCard').classList.add('flipped');
-                    }, 400);
-
-                    setTimeout(() => {
-                        document.getElementById('cardInfo').classList.remove('hidden');
-                    }, 1200);
-                } catch (e) {
-                    container.innerHTML = '<p style="color:#ef9a9a;">Ошибка соединения. Попробуй позже.</p>';
                 }
             }
 
@@ -232,32 +239,39 @@
                 document.getElementById('btnMenu').addEventListener('click', () => TG.close());
             });
 
-            async function fetchAffirmation() {
-                try {
-                    const response = await fetch(`${API_URL}/api/affirmation`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            initData: TG.initData,
-                            card_name: currentCard.card_name,
-                            position: currentCard.position
-                        })
-                    });
-                    if (!response.ok) throw new Error('Ошибка');
-                    const data = await response.json();
-                    document.getElementById('moonBlock').classList.add('hidden');
-                    document.getElementById('resultBlock').innerHTML = `
-                        <div class="card-text">${data.affirmation}</div>
-                        <button class="btn-menu" id="btnMenu">🔙 В меню</button>
-                    `;
-                    document.getElementById('btnMenu').addEventListener('click', () => TG.close());
-                } catch (e) {
-                    document.getElementById('moonBlock').classList.add('hidden');
-                    document.getElementById('resultBlock').innerHTML = `
-                        <p class="msg">Не удалось получить аффирмацию. Попробуй позже.</p>
-                        <button class="btn-menu" id="btnMenu">🔙 В меню</button>
-                    `;
-                    document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+            async function fetchAffirmation(retries = 2) {
+                for (let attempt = 0; attempt <= retries; attempt++) {
+                    try {
+                        const response = await fetch(`${API_URL}/api/affirmation`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                initData: TG.initData,
+                                card_name: currentCard.card_name,
+                                position: currentCard.position
+                            })
+                        });
+                        if (!response.ok) throw new Error('Ошибка');
+                        const data = await response.json();
+                        document.getElementById('moonBlock').classList.add('hidden');
+                        document.getElementById('resultBlock').innerHTML = `
+                            <div class="card-text">${data.affirmation}</div>
+                            <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+                        `;
+                        document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+                        return;
+                    } catch (e) {
+                        if (attempt === retries) {
+                            document.getElementById('moonBlock').classList.add('hidden');
+                            document.getElementById('resultBlock').innerHTML = `
+                                <p class="msg">Не удалось получить аффирмацию. Попробуй позже.</p>
+                                <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+                            `;
+                            document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+                        } else {
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                        }
+                    }
                 }
             }
 
