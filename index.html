@@ -15,55 +15,143 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: 20px; text-align: center;
+            padding: 20px;
+            text-align: center;
         }
-        .card-container {
-            background: rgba(255, 255, 255, 0.05); border-radius: 24px;
-            padding: 25px 20px; max-width: 380px; width: 100%;
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 25px 20px;
+            max-width: 380px;
+            width: 100%;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
         .card-image {
-            width: 200px; height: auto; border-radius: 12px;
-            margin: 0 auto 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            width: 200px;
+            height: auto;
+            border-radius: 12px;
+            margin: 0 auto 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             display: block;
         }
         .card-title { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #f5e6c8; }
         .card-position { font-size: 14px; opacity: 0.7; margin-bottom: 15px; }
         .card-text { font-size: 15px; line-height: 1.6; opacity: 0.85; margin-bottom: 20px; text-align: left; }
-        .btn-affirmation {
-            background: linear-gradient(145deg, #c9a84c, #b8902e); color: #1a1a2e;
-            border: none; padding: 12px 30px; font-size: 16px; font-family: inherit;
-            border-radius: 30px; cursor: pointer; font-weight: bold; width: 100%;
+        .question { margin: 20px 0; font-size: 16px; }
+        .buttons { display: flex; gap: 12px; justify-content: center; }
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-family: inherit;
+            border-radius: 30px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
         }
-        .status { margin-top: 15px; font-size: 13px; opacity: 0.6; }
+        .btn-yes { background: linear-gradient(145deg, #c9a84c, #b8902e); color: #1a1a2e; }
+        .btn-no { background: rgba(255,255,255,0.1); color: #e0cfa0; border: 1px solid rgba(255,255,255,0.2); }
+        .msg { margin-top: 15px; font-size: 14px; opacity: 0.8; }
+        .btn-chat {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 25px;
+            background: #2a3a5e;
+            color: #e0cfa0;
+            border-radius: 30px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+        }
+        .loading { opacity: 0.7; font-style: italic; }
     </style>
 </head>
 <body>
-    <div class="card-container">
-        <img class="card-image" id="cardImage" src="https://telegram-demo-bot.github.io/maria-taro-miniapp/cards/Маг.jpg" alt="Карта дня">
-        <div class="card-title" id="cardName">Маг</div>
-        <div class="card-position" id="cardPosition">прямое положение</div>
-        <div class="card-text" id="cardInterpretation">
-            Сегодня ты обладаешь огромной силой. Всё, за что ты возьмёшься, будет получаться. Доверься своей интуиции — она подскажет верный путь.
-        </div>
-        <button class="btn-affirmation" id="btnAffirmation">🌟 Получить аффирмацию</button>
-        <div class="status" id="tgStatus">Загружаю...</div>
+    <div class="container" id="mainBlock">
+        <div class="loading" id="loadingMsg">🌙 Тяну карту дня...</div>
     </div>
 
     <script>
-        const statusEl = document.getElementById('tgStatus');
-        if (window.Telegram && window.Telegram.WebApp) {
-            const tg = window.Telegram.WebApp;
-            tg.ready(); tg.expand();
-            tg.setHeaderColor('#1a1a2e');
-            tg.setBackgroundColor('#1a1a2e');
-            statusEl.textContent = '✅ Подключено к Telegram';
+        const TG = window.Telegram?.WebApp;
+        if (!TG) {
+            document.getElementById('mainBlock').innerHTML = '<p style="color:#ef9a9a;">❌ Откройте это приложение через Telegram</p>';
         } else {
-            statusEl.textContent = '❌ Откройте приложение через Telegram';
+            TG.ready();
+            TG.expand();
+            TG.setHeaderColor('#1a1a2e');
+            TG.setBackgroundColor('#1a1a2e');
         }
-        document.getElementById('btnAffirmation').addEventListener('click', () => {
-            alert('Аффирмация появится после подключения к серверу. Скоро!');
-        });
+
+        const API_URL = 'https://maria-taro-bot-fogels.waw0.amvera.tech';
+
+        async function loadDailyCard() {
+            const container = document.getElementById('mainBlock');
+            try {
+                if (!TG) throw new Error('Not in Telegram');
+                const response = await fetch(`${API_URL}/api/daily-card`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: TG.initData })
+                });
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        container.innerHTML = '<p style="color:#ef9a9a;">Сначала познакомимся! Напиши /start в чате с Марией. 🌙</p>';
+                    } else {
+                        container.innerHTML = '<p style="color:#ef9a9a;">Не удалось загрузить карту дня. Попробуй позже.</p>';
+                    }
+                    return;
+                }
+                const data = await response.json();
+                renderCard(data);
+            } catch (e) {
+                container.innerHTML = '<p style="color:#ef9a9a;">Ошибка соединения. Попробуй позже.</p>';
+            }
+        }
+
+        function renderCard(data) {
+            const container = document.getElementById('mainBlock');
+            container.innerHTML = `
+                <img class="card-image" src="${data.image_url}" alt="${data.card_name}">
+                <div class="card-title">${data.card_name}</div>
+                <div class="card-position">${data.position}</div>
+                <div class="card-text">${data.interpretation}</div>
+                <div class="question" id="questionBlock">Хочешь аффирмацию под эту карту? 🌸</div>
+                <div class="buttons" id="buttonsBlock">
+                    <button class="btn btn-yes" id="btnYes">Да</button>
+                    <button class="btn btn-no" id="btnNo">Нет</button>
+                </div>
+                <div id="resultBlock"></div>
+            `;
+
+            document.getElementById('btnYes').addEventListener('click', () => handleAffirmation(data.is_subscribed));
+            document.getElementById('btnNo').addEventListener('click', () => {
+                document.getElementById('questionBlock').style.display = 'none';
+                document.getElementById('buttonsBlock').style.display = 'none';
+                document.getElementById('resultBlock').innerHTML = '<p class="msg">Хорошо. Возвращайся завтра за новой картой. 🌙</p>';
+            });
+        }
+
+        function handleAffirmation(isSubscribed) {
+            const resultBlock = document.getElementById('resultBlock');
+            document.getElementById('questionBlock').style.display = 'none';
+            document.getElementById('buttonsBlock').style.display = 'none';
+
+            if (isSubscribed) {
+                resultBlock.innerHTML = '<p class="msg">🌟 Аффирмация скоро появится. Мы уже работаем над этим!</p>';
+            } else {
+                resultBlock.innerHTML = `
+                    <p class="msg">🌸 Аффирмация доступна по подписке. Чтобы получить её, оформи подписку в чате с Марией. Я буду рядом каждый день.</p>
+                    <button class="btn-chat" id="btnGoToChat">Перейти в чат</button>
+                `;
+                document.getElementById('btnGoToChat').addEventListener('click', () => {
+                    TG.close();
+                });
+            }
+        }
+
+        if (TG) loadDailyCard();
     </script>
 </body>
 </html>
