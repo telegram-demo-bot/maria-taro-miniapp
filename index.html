@@ -25,14 +25,48 @@
             max-width: 380px;
             width: 100%;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: relative;
         }
-        .card-image {
+        /* Анимация переворота */
+        .flip-card {
+            background-color: transparent;
             width: 200px;
-            height: auto;
-            border-radius: 12px;
+            height: 278px;
+            perspective: 1000px;
             margin: 0 auto 15px;
+        }
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+        }
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            display: block;
+        }
+        .flip-card-front {
+            background-image: url('https://telegram-demo-bot.github.io/maria-taro-miniapp/cards/card_back.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+        .flip-card-back {
+            transform: rotateY(180deg);
+        }
+        .flip-card-back img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
         }
         .card-title { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #f5e6c8; }
         .card-position { font-size: 14px; opacity: 0.7; margin-bottom: 15px; }
@@ -52,7 +86,7 @@
         .btn-yes { background: linear-gradient(145deg, #c9a84c, #b8902e); color: #1a1a2e; }
         .btn-no { background: rgba(255,255,255,0.1); color: #e0cfa0; border: 1px solid rgba(255,255,255,0.2); }
         .msg { margin-top: 15px; font-size: 14px; opacity: 0.8; }
-        .btn-chat {
+        .btn-menu {
             display: inline-block;
             margin-top: 15px;
             padding: 12px 25px;
@@ -65,12 +99,53 @@
             border: none;
             cursor: pointer;
         }
-        .loading { opacity: 0.7; font-style: italic; }
+        /* Анимация луны */
+        .moon-loading {
+            margin: 20px auto;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 4px solid rgba(255,215,0,0.2);
+            border-top-color: #ffd700;
+            animation: spin 1.2s linear infinite;
+            box-shadow: 0 0 15px rgba(255,215,0,0.3);
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-text {
+            margin-top: 10px;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="container" id="mainBlock">
-        <div class="loading" id="loadingMsg">🌙 Тяну карту дня...</div>
+        <div class="flip-card" id="flipCard">
+            <div class="flip-card-inner">
+                <div class="flip-card-front"></div>
+                <div class="flip-card-back">
+                    <img id="cardImage" src="" alt="Карта дня">
+                </div>
+            </div>
+        </div>
+        <div id="cardInfo" class="hidden">
+            <div class="card-title" id="cardTitle"></div>
+            <div class="card-position" id="cardPosition"></div>
+            <div class="card-text" id="cardInterpretation"></div>
+            <div id="questionBlock" class="question">Хочешь аффирмацию под эту карту? 🌸</div>
+            <div id="buttonsBlock" class="buttons">
+                <button class="btn btn-yes" id="btnYes">Да</button>
+                <button class="btn btn-no" id="btnNo">Нет</button>
+            </div>
+            <div id="resultBlock"></div>
+        </div>
+        <div id="moonBlock" class="hidden">
+            <div class="moon-loading"></div>
+            <div class="loading-text">🌸 Шепчу аффирмацию...</div>
+        </div>
     </div>
 
     <script>
@@ -85,6 +160,8 @@
         }
 
         const API_URL = 'https://maria-taro-bot-fogels.waw0.amvera.tech';
+
+        let currentCard = null;
 
         async function loadDailyCard() {
             const container = document.getElementById('mainBlock');
@@ -104,50 +181,85 @@
                     return;
                 }
                 const data = await response.json();
-                renderCard(data);
+                currentCard = data;
+                // Устанавливаем изображение
+                document.getElementById('cardImage').src = data.image_url;
+                document.getElementById('cardTitle').textContent = data.card_name;
+                document.getElementById('cardPosition').textContent = data.position === 'прямое' ? 'прямое положение' : 'перевёрнутое положение';
+                document.getElementById('cardInterpretation').textContent = data.interpretation;
+
+                // Запускаем переворот
+                setTimeout(() => {
+                    document.getElementById('flipCard').classList.add('flipped');
+                }, 400);
+
+                // Показываем информацию после анимации
+                setTimeout(() => {
+                    document.getElementById('cardInfo').classList.remove('hidden');
+                }, 1200);
+
             } catch (e) {
                 container.innerHTML = '<p style="color:#ef9a9a;">Ошибка соединения. Попробуй позже.</p>';
             }
         }
 
-        function renderCard(data) {
-            const container = document.getElementById('mainBlock');
-            container.innerHTML = `
-                <img class="card-image" src="${data.image_url}" alt="${data.card_name}">
-                <div class="card-title">${data.card_name}</div>
-                <div class="card-position">${data.position}</div>
-                <div class="card-text">${data.interpretation}</div>
-                <div class="question" id="questionBlock">Хочешь аффирмацию под эту карту? 🌸</div>
-                <div class="buttons" id="buttonsBlock">
-                    <button class="btn btn-yes" id="btnYes">Да</button>
-                    <button class="btn btn-no" id="btnNo">Нет</button>
-                </div>
-                <div id="resultBlock"></div>
-            `;
-
-            document.getElementById('btnYes').addEventListener('click', () => handleAffirmation(data.is_subscribed));
-            document.getElementById('btnNo').addEventListener('click', () => {
-                document.getElementById('questionBlock').style.display = 'none';
-                document.getElementById('buttonsBlock').style.display = 'none';
-                document.getElementById('resultBlock').innerHTML = '<p class="msg">Хорошо. Возвращайся завтра за новой картой. 🌙</p>';
-            });
-        }
-
-        function handleAffirmation(isSubscribed) {
-            const resultBlock = document.getElementById('resultBlock');
-            document.getElementById('questionBlock').style.display = 'none';
-            document.getElementById('buttonsBlock').style.display = 'none';
-
-            if (isSubscribed) {
-                resultBlock.innerHTML = '<p class="msg">🌟 Аффирмация скоро появится. Мы уже работаем над этим!</p>';
+        document.getElementById('btnYes').addEventListener('click', () => {
+            document.getElementById('questionBlock').classList.add('hidden');
+            document.getElementById('buttonsBlock').classList.add('hidden');
+            if (currentCard.is_subscribed) {
+                // показываем анимацию луны
+                document.getElementById('moonBlock').classList.remove('hidden');
+                fetchAffirmation();
             } else {
-                resultBlock.innerHTML = `
-                    <p class="msg">🌸 Аффирмация доступна по подписке. Чтобы получить её, оформи подписку в чате с Марией. Я буду рядом каждый день.</p>
-                    <button class="btn-chat" id="btnGoToChat">Перейти в чат</button>
+                // сообщение для неподписчика
+                document.getElementById('resultBlock').innerHTML = `
+                    <p class="msg">🌸 Я подготовила для тебя аффирмацию — но чтобы услышать её, нужна подписка.<br>
+                    Попробуй 7 дней за 99 ₽ — и я буду рядом каждый день: с картой, аффирмацией и ответами на твои вопросы. 🌙</p>
+                    <button class="btn-menu" id="btnMenu">🔙 В меню</button>
                 `;
-                document.getElementById('btnGoToChat').addEventListener('click', () => {
-                    TG.close();
+                document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+            }
+        });
+
+        document.getElementById('btnNo').addEventListener('click', () => {
+            document.getElementById('questionBlock').classList.add('hidden');
+            document.getElementById('buttonsBlock').classList.add('hidden');
+            const msg = currentCard.is_subscribed ?
+                `Хорошо. 🌙 Каждое утро в моём канале @dom_taro_blog выходит карта дня — там я публикую то чего нет в боте. Заглядывай.` :
+                `Хорошо. 🌙<br><br>Каждое утро в моём канале @dom_taro_blog выходит карта дня — заглядывай, там я публикую то чего нет в боте.<br><br>А если появится вопрос который не даёт покоя — попробуй 7 дней за 99 ₽, я сделаю расклад именно для тебя 👇`;
+            document.getElementById('resultBlock').innerHTML = `
+                <p class="msg">${msg}</p>
+                <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+            `;
+            document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+        });
+
+        async function fetchAffirmation() {
+            try {
+                const response = await fetch(`${API_URL}/api/affirmation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: TG.initData,
+                        card_name: currentCard.card_name,
+                        position: currentCard.position
+                    })
                 });
+                if (!response.ok) throw new Error('Ошибка');
+                const data = await response.json();
+                document.getElementById('moonBlock').classList.add('hidden');
+                document.getElementById('resultBlock').innerHTML = `
+                    <div class="card-text">${data.affirmation}</div>
+                    <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+                `;
+                document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+            } catch (e) {
+                document.getElementById('moonBlock').classList.add('hidden');
+                document.getElementById('resultBlock').innerHTML = `
+                    <p class="msg">Не удалось получить аффирмацию. Попробуй позже.</p>
+                    <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+                `;
+                document.getElementById('btnMenu').addEventListener('click', () => TG.close());
             }
         }
 
