@@ -2,28 +2,268 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debug</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Карта дня — Мария Таро</title>
     <style>
-        body { background: #1a1a2e; color: #fff; font-family: monospace; padding: 20px; }
-        ul { list-style: none; padding: 0; }
-        li { margin: 8px 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #e0cfa0;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 25px 20px;
+            max-width: 380px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        /* Анимация переворота */
+        .flip-card {
+            background-color: transparent;
+            width: 200px;
+            height: 278px;
+            perspective: 1000px;
+            margin: 0 auto 15px;
+        }
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+        }
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .flip-card-front {
+            background-image: url('https://telegram-demo-bot.github.io/maria-taro-miniapp/cards/card_back.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+        .flip-card-back {
+            transform: rotateY(180deg);
+        }
+        .flip-card-back img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+        }
+        .card-title { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #f5e6c8; }
+        .card-position { font-size: 14px; opacity: 0.7; margin-bottom: 15px; }
+        .card-text { font-size: 15px; line-height: 1.6; opacity: 0.85; margin-bottom: 20px; text-align: left; }
+        .question { margin: 20px 0; font-size: 16px; }
+        .buttons { display: flex; gap: 12px; justify-content: center; }
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-family: inherit;
+            border-radius: 30px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-yes { background: linear-gradient(145deg, #c9a84c, #b8902e); color: #1a1a2e; }
+        .btn-no { background: rgba(255,255,255,0.1); color: #e0cfa0; border: 1px solid rgba(255,255,255,0.2); }
+        .msg { margin-top: 15px; font-size: 14px; opacity: 0.8; }
+        .btn-menu {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 25px;
+            background: #2a3a5e;
+            color: #e0cfa0;
+            border-radius: 30px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+        }
+        /* Анимация луны */
+        .moon-loading {
+            margin: 20px auto;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 4px solid rgba(255,215,0,0.2);
+            border-top-color: #ffd700;
+            animation: spin 1.2s linear infinite;
+            box-shadow: 0 0 15px rgba(255,215,0,0.3);
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-text {
+            margin-top: 10px;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <h1>Debug Info</h1>
-    <ul>
-        <li><b>UserAgent:</b> <span id="ua"></span></li>
-        <li><b>window.Telegram:</b> <span id="tg"></span></li>
-        <li><b>window.Telegram.WebApp:</b> <span id="wa"></span></li>
-        <li><b>initData (первые 100 символов):</b> <span id="init"></span></li>
-    </ul>
+    <div class="container" id="mainBlock">
+        <div class="flip-card" id="flipCard">
+            <div class="flip-card-inner">
+                <div class="flip-card-front"></div>
+                <div class="flip-card-back">
+                    <img id="cardImage" src="" alt="Карта дня">
+                </div>
+            </div>
+        </div>
+        <div id="cardInfo" class="hidden">
+            <div class="card-title" id="cardTitle"></div>
+            <div class="card-position" id="cardPosition"></div>
+            <div class="card-text" id="cardInterpretation"></div>
+            <div id="questionBlock" class="question">Хочешь аффирмацию под эту карту? 🌸</div>
+            <div id="buttonsBlock" class="buttons">
+                <button class="btn btn-yes" id="btnYes">Да</button>
+                <button class="btn btn-no" id="btnNo">Нет</button>
+            </div>
+            <div id="resultBlock"></div>
+        </div>
+        <div id="moonBlock" class="hidden">
+            <div class="moon-loading"></div>
+            <div class="loading-text">🌸 Шепчу аффирмацию...</div>
+        </div>
+    </div>
+
     <script>
-        document.getElementById('ua').textContent = navigator.userAgent;
-        document.getElementById('tg').textContent = typeof window.Telegram;
-        document.getElementById('wa').textContent = typeof (window.Telegram && window.Telegram.WebApp);
-        var init = window.Telegram?.WebApp?.initData || '';
-        document.getElementById('init').textContent = init.substring(0, 100) + (init.length > 100 ? '...' : '');
+        const TG = window.Telegram?.WebApp;
+        if (!TG) {
+            document.getElementById('mainBlock').innerHTML = '<p style="color:#ef9a9a;">❌ Откройте это приложение через Telegram</p>';
+        } else {
+            TG.ready();
+            TG.expand();
+            TG.setHeaderColor('#1a1a2e');
+            TG.setBackgroundColor('#1a1a2e');
+        }
+
+        const API_URL = 'https://maria-taro-bot-fogels.waw0.amvera.tech';
+
+        let currentCard = null;
+
+        async function loadDailyCard() {
+            const container = document.getElementById('mainBlock');
+            try {
+                if (!TG) throw new Error('Not in Telegram');
+                const response = await fetch(`${API_URL}/api/daily-card`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: TG.initData })
+                });
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        container.innerHTML = '<p style="color:#ef9a9a;">Сначала познакомимся! Напиши /start в чате с Марией. 🌙</p>';
+                    } else {
+                        container.innerHTML = '<p style="color:#ef9a9a;">Не удалось загрузить карту дня. Попробуй позже.</p>';
+                    }
+                    return;
+                }
+                const data = await response.json();
+                currentCard = data;
+                // Устанавливаем изображение
+                document.getElementById('cardImage').src = data.image_url;
+                document.getElementById('cardTitle').textContent = data.card_name;
+                document.getElementById('cardPosition').textContent = data.position === 'прямое' ? 'прямое положение' : 'перевёрнутое положение';
+                document.getElementById('cardInterpretation').textContent = data.interpretation;
+
+                // Запускаем переворот
+                setTimeout(() => {
+                    document.getElementById('flipCard').classList.add('flipped');
+                }, 400);
+
+                // Показываем информацию после анимации
+                setTimeout(() => {
+                    document.getElementById('cardInfo').classList.remove('hidden');
+                }, 1200);
+
+            } catch (e) {
+                container.innerHTML = '<p style="color:#ef9a9a;">Ошибка соединения. Попробуй позже.</p>';
+            }
+        }
+
+        document.getElementById('btnYes').addEventListener('click', () => {
+            document.getElementById('questionBlock').classList.add('hidden');
+            document.getElementById('buttonsBlock').classList.add('hidden');
+            if (currentCard.is_subscribed) {
+                // показываем анимацию луны
+                document.getElementById('moonBlock').classList.remove('hidden');
+                fetchAffirmation();
+            } else {
+                // сообщение для неподписчика
+                document.getElementById('resultBlock').innerHTML = `
+                    <p class="msg">🌸 Я подготовила для тебя аффирмацию — но чтобы услышать её, нужна подписка.<br>
+                    Попробуй 7 дней за 99 ₽ — и я буду рядом каждый день: с картой, аффирмацией и ответами на твои вопросы. 🌙</p>
+                    <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+                `;
+                document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+            }
+        });
+
+        document.getElementById('btnNo').addEventListener('click', () => {
+            document.getElementById('questionBlock').classList.add('hidden');
+            document.getElementById('buttonsBlock').classList.add('hidden');
+            const msg = currentCard.is_subscribed ?
+                `Хорошо. 🌙 Каждое утро в моём канале @dom_taro_blog выходит карта дня — там я публикую то чего нет в боте. Заглядывай.` :
+                `Хорошо. 🌙<br><br>Каждое утро в моём канале @dom_taro_blog выходит карта дня — заглядывай, там я публикую то чего нет в боте.<br><br>А если появится вопрос который не даёт покоя — попробуй 7 дней за 99 ₽, я сделаю расклад именно для тебя 👇`;
+            document.getElementById('resultBlock').innerHTML = `
+                <p class="msg">${msg}</p>
+                <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+            `;
+            document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+        });
+
+        async function fetchAffirmation() {
+            try {
+                const response = await fetch(`${API_URL}/api/affirmation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: TG.initData,
+                        card_name: currentCard.card_name,
+                        position: currentCard.position
+                    })
+                });
+                if (!response.ok) throw new Error('Ошибка');
+                const data = await response.json();
+                document.getElementById('moonBlock').classList.add('hidden');
+                document.getElementById('resultBlock').innerHTML = `
+                    <div class="card-text">${data.affirmation}</div>
+                    <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+                `;
+                document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+            } catch (e) {
+                document.getElementById('moonBlock').classList.add('hidden');
+                document.getElementById('resultBlock').innerHTML = `
+                    <p class="msg">Не удалось получить аффирмацию. Попробуй позже.</p>
+                    <button class="btn-menu" id="btnMenu">🔙 В меню</button>
+                `;
+                document.getElementById('btnMenu').addEventListener('click', () => TG.close());
+            }
+        }
+
+        if (TG) loadDailyCard();
     </script>
 </body>
 </html>
