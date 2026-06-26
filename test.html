@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Test</title></head>
+<body style="background:#1a1a2e;color:#fff;padding:20px;">
+  <h1 id="r">Проверка...</h1>
+  <script>
+    document.getElementById('r').textContent =
+      'Telegram: ' + typeof window.Telegram + ', WebApp: ' + typeof (window.Telegram?.WebApp);
+  </script>
+</body>
+</html>
