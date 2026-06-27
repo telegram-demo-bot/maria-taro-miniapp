@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#1a1a2e">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Карта дня — Мария Таро</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -165,21 +166,42 @@
             TG.setBackgroundColor('#1a1a2e');
 
             const API_URL = 'https://maria-taro-bot-fogels.waw0.amvera.tech';
+            const REQUEST_TIMEOUT = 25000; // 25 секунд
+            const MAX_RETRIES = 2;
 
             let currentCard = null;
 
-            async function loadDailyCard(retries = 2) {
+            function showRetryBanner(attempt) {
+                const container = document.getElementById('mainBlock');
+                const banner = document.createElement('div');
+                banner.className = 'msg';
+                banner.style.color = '#ffd700';
+                banner.textContent = `🔄 Пробуем снова (попытка ${attempt})...`;
+                container.appendChild(banner);
+                return () => banner.remove();
+            }
+
+            async function loadDailyCard(retries = MAX_RETRIES) {
                 const container = document.getElementById('mainBlock');
                 for (let attempt = 0; attempt <= retries; attempt++) {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+                    let removeBanner = null;
+                    if (attempt > 0) removeBanner = showRetryBanner(attempt + 1);
                     try {
                         const response = await fetch(`${API_URL}/api/daily-card`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ initData: TG.initData })
+                            body: JSON.stringify({ initData: TG.initData }),
+                            signal: controller.signal
                         });
+                        clearTimeout(timeoutId);
+                        if (removeBanner) removeBanner();
                         if (!response.ok) {
                             if (response.status === 404) {
                                 container.innerHTML = '<p style="color:#ef9a9a;">Сначала познакомимся! Напиши /start в чате с Марией. 🌙</p>';
+                            } else if (response.status === 504) {
+                                container.innerHTML = '<p style="color:#ef9a9a;">Сервер пока занят. Повтори через минуту.</p>';
                             } else {
                                 container.innerHTML = '<p style="color:#ef9a9a;">Не удалось загрузить карту дня. Попробуй позже.</p>';
                             }
@@ -187,20 +209,21 @@
                         }
                         const data = await response.json();
                         currentCard = data;
-                        document.getElementById('cardImage').src = data.image_url;
+                        const encodedName = encodeURIComponent(data.card_name);
+                        document.getElementById('cardImage').src = `https://telegram-demo-bot.github.io/maria-taro-miniapp/cards/${encodedName}.jpg`;
                         document.getElementById('cardTitle').textContent = data.card_name;
                         document.getElementById('cardPosition').textContent = data.position === 'прямое' ? 'прямое положение' : 'перевёрнутое положение';
                         document.getElementById('cardInterpretation').textContent = data.interpretation;
-
                         setTimeout(() => {
                             document.getElementById('flipCard').classList.add('flipped');
                         }, 400);
-
                         setTimeout(() => {
                             document.getElementById('cardInfo').classList.remove('hidden');
                         }, 1200);
-                        return; // успех
+                        return;
                     } catch (e) {
+                        clearTimeout(timeoutId);
+                        if (removeBanner) removeBanner();
                         if (attempt === retries) {
                             container.innerHTML = '<p style="color:#ef9a9a;">Ошибка соединения. Попробуй позже.</p>';
                         } else {
@@ -213,7 +236,7 @@
             document.getElementById('btnYes').addEventListener('click', () => {
                 document.getElementById('questionBlock').classList.add('hidden');
                 document.getElementById('buttonsBlock').classList.add('hidden');
-                if (currentCard.is_subscribed) {
+                if (currentCard && currentCard.is_subscribed) {
                     document.getElementById('moonBlock').classList.remove('hidden');
                     fetchAffirmation();
                 } else {
@@ -229,7 +252,7 @@
             document.getElementById('btnNo').addEventListener('click', () => {
                 document.getElementById('questionBlock').classList.add('hidden');
                 document.getElementById('buttonsBlock').classList.add('hidden');
-                const msg = currentCard.is_subscribed ?
+                const msg = (currentCard && currentCard.is_subscribed) ?
                     `Хорошо. 🌙 Каждое утро в моём канале @dom_taro_blog выходит карта дня — там я публикую то чего нет в боте. Заглядывай.` :
                     `Хорошо. 🌙<br><br>Каждое утро в моём канале @dom_taro_blog выходит карта дня — заглядывай, там я публикую то чего нет в боте.<br><br>А если появится вопрос который не даёт покоя — попробуй 7 дней за 99 ₽, я сделаю расклад именно для тебя 👇`;
                 document.getElementById('resultBlock').innerHTML = `
@@ -239,8 +262,12 @@
                 document.getElementById('btnMenu').addEventListener('click', () => TG.close());
             });
 
-            async function fetchAffirmation(retries = 2) {
+            async function fetchAffirmation(retries = MAX_RETRIES) {
                 for (let attempt = 0; attempt <= retries; attempt++) {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+                    let removeBanner = null;
+                    if (attempt > 0) removeBanner = showRetryBanner(attempt + 1);
                     try {
                         const response = await fetch(`${API_URL}/api/affirmation`, {
                             method: 'POST',
@@ -249,8 +276,11 @@
                                 initData: TG.initData,
                                 card_name: currentCard.card_name,
                                 position: currentCard.position
-                            })
+                            }),
+                            signal: controller.signal
                         });
+                        clearTimeout(timeoutId);
+                        if (removeBanner) removeBanner();
                         if (!response.ok) throw new Error('Ошибка');
                         const data = await response.json();
                         document.getElementById('moonBlock').classList.add('hidden');
@@ -261,6 +291,8 @@
                         document.getElementById('btnMenu').addEventListener('click', () => TG.close());
                         return;
                     } catch (e) {
+                        clearTimeout(timeoutId);
+                        if (removeBanner) removeBanner();
                         if (attempt === retries) {
                             document.getElementById('moonBlock').classList.add('hidden');
                             document.getElementById('resultBlock').innerHTML = `
